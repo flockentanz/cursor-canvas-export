@@ -5,19 +5,21 @@ Goal: an agent in Cursor can turn a canvas into HTML or PDF when the user asks, 
 ```json
 {
   "mcpServers": {
-    "canvas-export": { "command": "npx", "args": ["-y", "cursor-canvas-2-pdf", "mcp"] }
+    "canvas-export": { "command": "npx", "args": ["-y", "cursor-canvas-export", "mcp"] }
   }
 }
 ```
 
 Exports are written next to the canvas, in its `canvases/` folder.
 
+Stages 1–3 are in the repository. `npm publish` still needs the repo to be public and an `NPM_TOKEN` secret. Stage 4 is not started.
+
 ## 1. Portable package
 
 The converter currently runs only from a clone. Under `npx` it breaks in three places.
 
 - **React resolution.** `convert.ts` points esbuild at `../node_modules`. Resolve `react` and `react-dom` with `require.resolve` instead.
-- **Browser.** Downloading Playwright's Chromium takes minutes. Use `playwright-core` and launch an installed browser first: Edge (present on every Windows machine), then Chrome. Fall back to a downloaded Chromium with a clear install message.
+- **Browser, headless.** PDF needs a layout engine: Chromium prints the same DOM that became the HTML. It runs headless, so no window opens on Windows, macOS, or Linux. HTML alone can be rendered without it; PDF and PNG previews cannot, if the layout is to match the canvas. Use Playwright's bundled Chromium, one build per OS, cached after the first run. Do not depend on Edge or a system Chrome.
 - **Build.** Bundle the CLI into `dist/`. Ship `src/sdk` as source, because each canvas is compiled against it at run time. Add `bin`, `files`, `engines`, and `license` to `package.json`.
 
 Before publishing:

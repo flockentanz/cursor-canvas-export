@@ -1,8 +1,10 @@
-# canvas2pdf
+# cursor-canvas-export
 
-Convert a Cursor canvas (`.canvas.tsx`) into a self-contained HTML file and a one-page PDF that keep the same layout.
+Export a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
 
-HTML is the rendered page. The PDF is that page printed by Chromium, so colors, type, tables, and charts stay together. The page is one continuous sheet the width of the canvas panel, not a reflowed A4 document.
+HTML is the rendered page. The PDF is that page printed by headless Chromium, so colors, type, tables, and charts stay together. Nothing opens on screen. The page is one continuous sheet the width of the canvas panel.
+
+The same tool is published for agents as an MCP server.
 
 ## Install
 
@@ -13,16 +15,28 @@ npm install
 npx playwright install chromium
 ```
 
-## Use
+The first export downloads Chromium if it is not cached yet. Later runs reuse that copy on Windows, macOS, and Linux.
+
+## Command line
 
 ```bash
 npx tsx src/cli.ts path/to/report.canvas.tsx
 ```
 
-This writes `report.html` and `report.pdf` next to the source file.
+After `npm run build`, or once the package is installed:
 
 ```bash
-npx tsx src/cli.ts report.canvas.tsx --out out/report --theme light --width 960 --format both
+cursor-canvas-export path/to/report.canvas.tsx
+canvas-to-html path/to/report.canvas.tsx
+canvas-to-pdf path/to/report.canvas.tsx
+```
+
+`canvas-to-html` and `canvas-to-pdf` are aliases. They default to one format. `--format` still overrides that.
+
+Files are written next to the canvas: `report.html` and `report.pdf`.
+
+```bash
+cursor-canvas-export report.canvas.tsx --out out/report --theme light --width 960 --format both
 ```
 
 | Flag | Default | |
@@ -35,11 +49,38 @@ npx tsx src/cli.ts report.canvas.tsx --out out/report --theme light --width 960 
 
 If `report.canvas.data.json` sits next to the canvas, `useCanvasState` reads it for the snapshot.
 
+## MCP
+
+Add this to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "canvas-export": {
+      "command": "npx",
+      "args": ["-y", "cursor-canvas-export", "mcp"]
+    }
+  }
+}
+```
+
+[Add to Cursor](https://cursor.com/install-mcp?name=canvas-export&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImN1cnNvci1jYW52YXMtZXhwb3J0IiwibWNwIl19)
+
+The server exposes three tools:
+
+| Tool | Purpose |
+| --- | --- |
+| `list_canvases` | Find `.canvas.tsx` files under `~/.cursor/projects`, newest first. |
+| `export_canvas` | Write HTML and PDF next to the canvas. Accepts a path or a name. |
+| `preview_canvas` | Return a PNG of the page. Tall pages are clipped to the top. |
+
+Ask the agent to export a canvas. It calls the tool and returns the file paths.
+
 ## How it works
 
-A canvas only imports `cursor/canvas`. This tool bundles the file with esbuild against a local implementation of that SDK, mounts it in headless Chromium, and saves the DOM. Chart colors and the type scale come from the public canvas tokens.
+A canvas only imports `cursor/canvas`. This package bundles the file with esbuild against a local implementation of that SDK, mounts it in headless Chromium, and saves the DOM. Chart colors and the type scale come from the public canvas tokens.
 
-The IDE font is private, so text uses Segoe UI on Windows and `system-ui` elsewhere. Glyphs can differ slightly from the panel in Cursor. Surfaces that the public tokens do not publish are fixed constants.
+The IDE font is private, so text uses Segoe UI on Windows and `system-ui` elsewhere. Glyphs can differ slightly from the panel in Cursor.
 
 Very tall canvases can exceed Chromium’s page-size limit. The HTML file is still written.
 
@@ -48,3 +89,7 @@ Very tall canvases can exceed Chromium’s page-size limit. The HTML file is sti
 ```bash
 npm test
 ```
+
+## License
+
+MIT

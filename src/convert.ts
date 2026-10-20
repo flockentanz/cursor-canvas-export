@@ -1,12 +1,12 @@
 import * as esbuild from "esbuild";
+import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium, type Browser } from "playwright";
+import { acquireBrowser, releaseBrowser } from "./browser";
 import { buildTheme, fontStack, type ThemeKind } from "./sdk/tokens";
 
-const sdkEntry = fileURLToPath(new URL("./sdk/index.tsx", import.meta.url));
-const projectNodeModules = fileURLToPath(new URL("../node_modules", import.meta.url));
+const require = createRequire(import.meta.url);
 
 export type Format = "html" | "pdf" | "both";
 
@@ -17,12 +17,16 @@ export type ConvertOptions = {
   width?: number;
   format?: Format;
   screenshot?: string;
+  /** Return a PNG buffer and do not write HTML or PDF. */
+  preview?: boolean;
 };
 
 export type ConvertResult = {
   html?: string;
   pdf?: string;
   screenshot?: string;
+  preview?: Buffer;
+  previewClipped?: boolean;
   width: number;
   height: number;
 };
@@ -53,7 +57,7 @@ function outputStem(out: string | undefined, input: string): string {
 
 export async function convert(options: ConvertOptions): Promise<ConvertResult> {
   const input = path.resolve(options.input);
-  if (!fs.existsSync(input)) throw new Error(`Файл не найден: ${input}`);
+  if (!fs.existsSync(input)) throw new Error(`Canvas file not found: ${input}`);
 
   const theme = options.theme ?? "dark";
   const width = options.width ?? 800;
@@ -72,26 +76,33 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
     "",
   ].join("\n");
 
-  const built = await esbuild.build({
-    stdin: {
-      contents: wrapper,
-      resolveDir: path.dirname(input),
-      sourcefile: "canvas-entry.tsx",
-      loader: "tsx",
-    },
-    bundle: true,
-    format: "iife",
-    platform: "browser",
-    write: false,
-    jsx: "automatic",
-    target: "es2022",
-    alias: { "cursor/canvas": sdkEntry },
-    nodePaths: [projectNodeModules],
-    define: { "process.env.NODE_ENV": '"production"' },
-    logLevel: "silent",
-  });
-  const script = built.outputFiles[0]?.text?.replaceAll("</script", "<\\/script");
-  if (!script) throw new Error("Сборка canvas не вернула код.");
+  let built: esbuild.BuildResult;
+  try {
+    built = await esbuild.build({
+      stdin: {
+        contents: wrapper,
+        resolveDir: path.dirname(input),
+        sourcefile: "canvas-entry.tsx",
+        loader: "tsx",
+      },
+      bundle: true,
+      format: "iife",
+      platform: "browser",
+      write: false,
+      jsx: "automatic",
+      target: "es2022",
+      alias: { "cursor/canvas": sdkEntryPath() },
+      nodePaths: [reactNodeModules()],
+      define: { "process.env.NODE_ENV": '"production"' },
+      logLevel: "silent",
+    });
+  } catch (error) {
+    const formatted = formatEsbuildError(error);
+    if (formatted) throw new Error(formatted);
+    throw error;
+  }
+  const script = built.outputFiles?.[0]?.text?.replaceAll("</script", "<\\/script");
+  if (!script) throw new Error("Canvas build produced no code.");
 
   const shell = `<!DOCTYPE html>
 <html lang="ru">
@@ -112,9 +123,10 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
 </body>
 </html>`;
 
-  const browser = await launchChromium();
+  const browser = await acquireBrowser();
+  let page: Awaited<ReturnType<typeof browser.newPage>> | undefined;
   try {
-    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+    page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
@@ -143,13 +155,22 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
     await page.setViewportSize({ width: size.width, height: Math.max(size.height, 1) });
 
     const stem = outputStem(options.out, input);
-    fs.mkdirSync(path.dirname(stem), { recursive: true });
     const result: ConvertResult = { width: size.width, height: size.height };
+    if (!options.preview) fs.mkdirSync(path.dirname(stem), { recursive: true });
 
-    if (format === "html" || format === "both") {
+    if (!options.preview && (format === "html" || format === "both")) {
       const file = `${stem}.html`;
       fs.writeFileSync(file, centerHtmlForBrowser(await page.content()), "utf8");
       result.html = file;
+    }
+    if (options.preview) {
+      const limit = 1600;
+      result.previewClipped = size.height > limit;
+      result.preview = await page.screenshot(
+        size.height > limit
+          ? { clip: { x: 0, y: 0, width: size.width, height: limit } }
+          : { fullPage: true },
+      );
     }
     if (options.screenshot) {
       const shot = path.resolve(options.screenshot);
@@ -157,7 +178,7 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
       await page.screenshot({ path: shot, fullPage: true });
       result.screenshot = shot;
     }
-    if (format === "pdf" || format === "both") {
+    if (!options.preview && (format === "pdf" || format === "both")) {
       const file = `${stem}.pdf`;
       await page.emulateMedia({ media: "screen" });
       await page.pdf({
@@ -171,21 +192,36 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
     }
     return result;
   } finally {
-    await browser.close();
+    await page?.close().catch(() => {});
+    await releaseBrowser();
   }
 }
 
-async function launchChromium(): Promise<Browser> {
-  try {
-    return await chromium.launch();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    if (message.includes("Executable doesn't exist") || message.includes("Please run")) {
-      throw new Error(
-        "Chromium для Playwright не установлен. Выполните: npx playwright install chromium",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
+function sdkEntryPath(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url));
+  const candidates = [
+    path.join(here, "sdk", "index.tsx"),
+    path.join(here, "../src/sdk/index.tsx"),
+  ];
+  const found = candidates.find((candidate) => fs.existsSync(candidate));
+  if (!found) throw new Error("Canvas SDK sources were not found in the package.");
+  return found;
+}
+
+function reactNodeModules(): string {
+  return path.dirname(path.dirname(require.resolve("react/package.json")));
+}
+
+function formatEsbuildError(error: unknown): string | undefined {
+  if (!error || typeof error !== "object" || !("errors" in error)) return undefined;
+  const errors = (error as { errors: unknown }).errors;
+  if (!Array.isArray(errors)) return undefined;
+  return errors
+    .map((item) => {
+      const entry = item as { text?: string; location?: { file?: string; line?: number; column?: number } | null };
+      const loc = entry.location;
+      const where = loc?.file ? `${loc.file}:${loc.line ?? 1}:${loc.column ?? 0}` : "build";
+      return `${where}: ${entry.text ?? "build failed"}`;
+    })
+    .join("\n");
 }

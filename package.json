@@ -1,18 +1,48 @@
 {
-  "name": "canvas2pdf",
+  "name": "cursor-canvas-export",
   "version": "0.1.0",
-  "private": true,
+  "description": "Export a Cursor canvas to HTML and a one-page PDF. Headless, for agents and the command line.",
+  "license": "MIT",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "cursor-canvas-export": "./dist/cli.js",
+    "canvas-to-html": "./bin/canvas-to-html.js",
+    "canvas-to-pdf": "./bin/canvas-to-pdf.js"
+  },
+  "files": [
+    "dist",
+    "bin",
+    "src/sdk",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/flockentanz/cursor-canvas-2-pdf.git"
+  },
+  "keywords": [
+    "cursor",
+    "canvas",
+    "mcp",
+    "pdf",
+    "html"
+  ],
   "scripts": {
-    "canvas2pdf": "tsx src/cli.ts",
-    "report": "tsx src/cli.ts \"C:/Users/Misha/.cursor/projects/c-Users-Misha-PhpstormProjects-gpt-gateway/canvases/mysql-load-report.canvas.tsx\" --out out/mysql-load-report --screenshot out/mysql-load-report.png",
-    "test": "tsx --test test/**/*.test.ts"
+    "build": "node scripts/build.mjs",
+    "prepublishOnly": "npm run build",
+    "canvas": "tsx src/cli.ts",
+    "test": "tsx --test --test-concurrency=1 test/**/*.test.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "esbuild": "^0.25.10",
     "playwright": "^1.56.1",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@types/node": "^24.9.1",
