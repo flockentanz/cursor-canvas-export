@@ -12,7 +12,7 @@ Goal: an agent in Cursor can turn a canvas into HTML or PDF when the user asks, 
 
 Exports are written next to the canvas, in its `canvases/` folder.
 
-Stages 1–3 are in the repository. `npm publish` still needs the repo to be public and an `NPM_TOKEN` secret. Stage 4 is not started.
+Stages 1–3 are in the repository. `npm publish` still needs the repo to be public and an `NPM_TOKEN` secret. Stage 4 is specified and not started.
 
 ## 1. Portable package
 
@@ -29,7 +29,7 @@ Before publishing:
 
 ## 2. MCP server
 
-`cursor-canvas-2-pdf mcp` starts a stdio server with three tools.
+`cursor-canvas-export mcp` starts a stdio server with three tools.
 
 | Tool | Purpose |
 | --- | --- |
@@ -51,8 +51,23 @@ Tests start the server with the MCP SDK client and call all three tools on the f
 - Add an "Add to Cursor" install link to the README.
 - CI: tests on Windows and Linux; publish on `v*` tags.
 
-## 4. Later
+## 4. Cursor plugin
 
-- Cursor plugin bundling the MCP server with a short skill, so the agent exports when asked to send, print, or save a canvas as PDF.
+A Cursor plugin is a folder the IDE installs. It is not a VS Code extension and it does not add a panel. After install, the agent receives the MCP server and a skill, so the user does not paste an `mcp.json` entry by hand.
+
+Layout in this repo:
+
+```
+.cursor-plugin/plugin.json    name, description, license, link to mcp.json
+mcp.json                      stdio: npx -y cursor-canvas-export mcp
+skills/export-canvas/SKILL.md
+```
+
+`plugin.json` follows the same shape as other Cursor plugins: `name`, `displayName`, `description`, `author`, `license`, and `mcpServers` pointing at `mcp.json`. The skill tells the agent to call `export_canvas` when the user asks to send, print, save, or share a canvas, and to call `preview_canvas` before handing the file over. HTML and PDF stay aliases of one tool.
+
+The plugin depends on stage 3: `npx` must resolve `cursor-canvas-export`. Marketplace listing can wait. Until then the folder is enough to install from the repo.
+
+## 5. Later
+
 - `--page a4` print layout.
 - Fidelity: compare renders with IDE screenshots and tune spacing and type.
