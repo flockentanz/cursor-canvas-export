@@ -37,6 +37,13 @@ function readState(input: string): Record<string, unknown> {
   return {};
 }
 
+/** Центрирование только в файле HTML: PDF и скриншот снимаются со страницы шириной canvas, без этого правила. */
+function centerHtmlForBrowser(html: string): string {
+  const head = html.lastIndexOf("</head>");
+  if (head === -1) return html;
+  return `${html.slice(0, head)}<style>#root{margin-left:auto;margin-right:auto}</style>${html.slice(head)}`;
+}
+
 function outputStem(out: string | undefined, input: string): string {
   if (!out) return input.replace(/\.canvas\.tsx$/, "");
   const resolved = path.resolve(out);
@@ -141,7 +148,7 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
 
     if (format === "html" || format === "both") {
       const file = `${stem}.html`;
-      fs.writeFileSync(file, await page.content(), "utf8");
+      fs.writeFileSync(file, centerHtmlForBrowser(await page.content()), "utf8");
       result.html = file;
     }
     if (options.screenshot) {
