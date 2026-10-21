@@ -1,7 +1,7 @@
 # cursor-canvas-export
 
-[![npm](https://img.shields.io/npm/v/cursor-canvas-export.svg)](https://www.npmjs.com/package/cursor-canvas-export)
-<a href="https://cursor.com/install-mcp?name=canvas-export&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImN1cnNvci1jYW52YXMtZXhwb3J0IiwibWNwIl19"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cursor.com/deeplink/mcp-install-dark.svg"><img alt="Add to Cursor" src="https://cursor.com/deeplink/mcp-install-light.svg"></picture></a>
+<a href="https://www.npmjs.com/package/cursor-canvas-export"><img alt="npm" src="https://img.shields.io/npm/v/cursor-canvas-export.svg" height="28"></a>
+<a href="https://cursor.com/install-mcp?name=canvas-export&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImN1cnNvci1jYW52YXMtZXhwb3J0IiwibWNwIl19"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cursor.com/deeplink/mcp-install-dark.svg"><img alt="Add to Cursor" height="28" src="https://cursor.com/deeplink/mcp-install-light.svg"></picture></a>
 
 Export a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
 
