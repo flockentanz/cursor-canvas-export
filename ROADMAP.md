@@ -12,7 +12,7 @@ Goal: an agent in Cursor can turn a canvas into HTML or PDF when the user asks, 
 
 Exports are written next to the canvas, in its `canvases/` folder.
 
-Stages 1–3 are in the repository. Publish `cursor-canvas-export` by pushing a `v*` tag. Stage 4 is specified and not started.
+Stages 1–3 are in the repository. A `v*` tag stages `cursor-canvas-export`; a maintainer approves that version on npm with 2FA. Stage 4 is specified and not started.
 
 ## 1. Portable package
 
@@ -49,7 +49,7 @@ Tests start the server with the MCP SDK client and call all three tools on the f
 - Make the repository public.
 - Publish `cursor-canvas-export` to npm.
 - Add an "Add to Cursor" install link to the README.
-- CI: tests on Windows and Linux; publish on `v*` tags.
+- CI: tests on Windows and Linux. A `v*` tag runs `npm stage publish`; a maintainer approves the staged version with 2FA.
 
 ## 4. Cursor plugin
 
