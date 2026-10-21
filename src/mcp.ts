@@ -43,7 +43,7 @@ export function createServer(): McpServer {
     {
       title: "Export canvas",
       description:
-        "Render a Cursor canvas to HTML and/or a one-page PDF. Pass a full path or a canvas name. Files are written next to the canvas unless out is set. The browser runs headless.",
+        "Render a Cursor canvas to HTML and/or a one-page PDF. Pass a full path or a canvas name. Files are written next to the canvas unless out is set. Returns output paths, page size, and warnings. The browser runs headless.",
       inputSchema: {
         canvas: z.string().describe("Absolute path to a .canvas.tsx file, or its name without the extension."),
         format: z.enum(["html", "pdf", "both"]).optional().describe("Defaults to both."),
@@ -54,16 +54,7 @@ export function createServer(): McpServer {
     },
     async ({ canvas, format, theme, width, out }) => {
       const resolved = resolveCanvas(canvas);
-      if (!resolved.match) {
-        if (resolved.matches.length === 0) {
-          throw new Error(`No canvas found for "${canvas}". Call list_canvases to see available files.`);
-        }
-        return text(
-          `Several canvases match "${canvas}". Pass one full path:\n${resolved.matches
-            .map((hit) => hit.path)
-            .join("\n")}`,
-        );
-      }
+      if (!resolved.match) return unresolvedCanvas(canvas, resolved.matches);
       const result = await convert({
         input: resolved.match.path,
         out,
@@ -75,6 +66,7 @@ export function createServer(): McpServer {
         result.html ? `html: ${result.html}` : "",
         result.pdf ? `pdf: ${result.pdf}` : "",
         `page: ${result.width}x${result.height}px`,
+        ...result.warnings.map((warning) => `warning: ${warning}`),
       ].filter(Boolean);
       return text(lines.join("\n"));
     },
@@ -94,10 +86,7 @@ export function createServer(): McpServer {
     },
     async ({ canvas, theme, width }) => {
       const resolved = resolveCanvas(canvas);
-      if (!resolved.match) {
-        if (resolved.matches.length === 0) throw new Error(`No canvas found for "${canvas}".`);
-        return text(resolved.matches.map((hit) => hit.path).join("\n"));
-      }
+      if (!resolved.match) return unresolvedCanvas(canvas, resolved.matches);
       const result = await convert({
         input: resolved.match.path,
         preview: true,
@@ -129,6 +118,15 @@ export async function serveStdio(): Promise<void> {
     void closeBrowser();
   });
   await server.connect(new StdioServerTransport());
+}
+
+function unresolvedCanvas(canvas: string, matches: Array<{ path: string }>) {
+  if (matches.length === 0) {
+    throw new Error(`No canvas found for "${canvas}". Call list_canvases to see available files.`);
+  }
+  return text(
+    `Several canvases match "${canvas}". Pass one full path:\n${matches.map((hit) => hit.path).join("\n")}`,
+  );
 }
 
 function text(value: string) {

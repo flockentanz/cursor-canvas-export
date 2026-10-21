@@ -51,6 +51,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     if (result.html) process.stdout.write(`${result.html}\n`);
     if (result.pdf) process.stdout.write(`${result.pdf}\n`);
     if (result.screenshot) process.stdout.write(`${result.screenshot}\n`);
+    for (const warning of result.warnings) process.stderr.write(`warning: ${warning}\n`);
   } catch (error) {
     process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
     process.exit(1);

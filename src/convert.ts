@@ -29,7 +29,19 @@ export type ConvertResult = {
   previewClipped?: boolean;
   width: number;
   height: number;
+  warnings: string[];
 };
+
+/** Chromium refuses a PDF page larger than 200 inches (96 CSS px per inch). */
+export const PDF_MAX_PX = 200 * 96;
+
+export function pdfTooLarge(width: number, height: number): boolean {
+  return width > PDF_MAX_PX || height + 1 > PDF_MAX_PX;
+}
+
+export function pdfLimitWarning(width: number, height: number): string {
+  return `PDF skipped: page ${width}x${height}px exceeds Chromium's 200 inch limit.`;
+}
 
 function readState(input: string): Record<string, unknown> {
   const sidecar = input.replace(/\.canvas\.tsx$/, ".canvas.data.json");
@@ -92,7 +104,7 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
       jsx: "automatic",
       target: "es2022",
       alias: { "cursor/canvas": sdkEntryPath() },
-      nodePaths: [reactNodeModules()],
+      plugins: [reactFromPackage()],
       define: { "process.env.NODE_ENV": '"production"' },
       logLevel: "silent",
     });
@@ -128,18 +140,40 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
   try {
     page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
     const errors: string[] = [];
-    page.on("pageerror", (error) => errors.push(error.message));
+    let settleRuntime: (error?: Error) => void = () => {};
+    const runtimeFailure = new Promise<void>((resolve, reject) => {
+      settleRuntime = (error) => (error ? reject(error) : resolve());
+    });
+    void runtimeFailure.catch(() => {});
+    const reportRuntime = (message: string) => {
+      errors.push(message);
+      settleRuntime(new Error(errors.join("\n")));
+    };
+    page.on("pageerror", (error) => reportRuntime(error.message));
     page.on("console", (message) => {
-      if (message.type() === "error") errors.push(message.text());
+      if (message.type() === "error") reportRuntime(message.text());
     });
-    await page.setContent(shell, { waitUntil: "load" });
-    await page.waitForSelector("#root > *", { timeout: 15_000 });
-    await page.evaluate(async () => {
-      await document.fonts.ready;
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-    });
+    try {
+      await Promise.race([
+        (async () => {
+          await page!.setContent(shell, { waitUntil: "load" });
+          await page!.waitForSelector("#root > *", { timeout: 15_000 });
+          await page!.evaluate(async () => {
+            await document.fonts.ready;
+            await new Promise<void>((resolve) => {
+              requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+            });
+          });
+        })(),
+        runtimeFailure,
+      ]);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      const extra = errors.filter((entry) => !message.includes(entry));
+      throw new Error(extra.length > 0 ? `${message}\n${extra.join("\n")}` : message);
+    } finally {
+      settleRuntime();
+    }
     if (errors.length > 0) throw new Error(errors.join("\n"));
 
     await page.evaluate(() => {
@@ -152,10 +186,15 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
       width: document.documentElement.scrollWidth,
       height: document.documentElement.scrollHeight,
     }));
-    await page.setViewportSize({ width: size.width, height: Math.max(size.height, 1) });
+    const warnings: string[] = [];
+    const wantsPdf = !options.preview && (format === "pdf" || format === "both");
+    const tooLarge = wantsPdf && pdfTooLarge(size.width, size.height);
+    if (!tooLarge) {
+      await page.setViewportSize({ width: size.width, height: Math.max(size.height, 1) });
+    }
 
     const stem = outputStem(options.out, input);
-    const result: ConvertResult = { width: size.width, height: size.height };
+    const result: ConvertResult = { width: size.width, height: size.height, warnings };
     if (!options.preview) fs.mkdirSync(path.dirname(stem), { recursive: true });
 
     if (!options.preview && (format === "html" || format === "both")) {
@@ -178,17 +217,27 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
       await page.screenshot({ path: shot, fullPage: true });
       result.screenshot = shot;
     }
-    if (!options.preview && (format === "pdf" || format === "both")) {
+    if (wantsPdf && tooLarge) {
+      warnings.push(pdfLimitWarning(size.width, size.height));
+      if (format === "pdf") throw new Error(warnings[0]);
+    } else if (wantsPdf) {
       const file = `${stem}.pdf`;
-      await page.emulateMedia({ media: "screen" });
-      await page.pdf({
-        path: file,
-        width: `${size.width}px`,
-        height: `${size.height + 1}px`,
-        printBackground: true,
-        margin: { top: "0", right: "0", bottom: "0", left: "0" },
-      });
-      result.pdf = file;
+      try {
+        await page.emulateMedia({ media: "screen" });
+        await page.pdf({
+          path: file,
+          width: `${size.width}px`,
+          height: `${size.height + 1}px`,
+          printBackground: true,
+          margin: { top: "0", right: "0", bottom: "0", left: "0" },
+        });
+        result.pdf = file;
+      } catch (error) {
+        fs.rmSync(file, { force: true });
+        const message = error instanceof Error ? error.message : String(error);
+        if (result.html) warnings.push(`PDF was not written: ${message}`);
+        else throw error;
+      }
     }
     return result;
   } finally {
@@ -208,8 +257,15 @@ function sdkEntryPath(): string {
   return found;
 }
 
-function reactNodeModules(): string {
-  return path.dirname(path.dirname(require.resolve("react/package.json")));
+function reactFromPackage(): esbuild.Plugin {
+  return {
+    name: "react-from-package",
+    setup(build) {
+      build.onResolve({ filter: /^react(-dom)?(\/|$)/ }, (args) => ({
+        path: require.resolve(args.path),
+      }));
+    },
+  };
 }
 
 function formatEsbuildError(error: unknown): string | undefined {

@@ -12,7 +12,7 @@ Goal: an agent in Cursor can turn a canvas into HTML or PDF when the user asks, 
 
 Exports are written next to the canvas, in its `canvases/` folder.
 
-Stages 1–3 are in the repository. `npm publish` still needs the repo to be public and an `NPM_TOKEN` secret. Stage 4 is specified and not started.
+Stages 1–3 are in the repository. Publish `cursor-canvas-export` by pushing a `v*` tag. Stage 4 is specified and not started.
 
 ## 1. Portable package
 
@@ -47,7 +47,7 @@ Tests start the server with the MCP SDK client and call all three tools on the f
 ## 3. Release
 
 - Make the repository public.
-- Publish `cursor-canvas-2-pdf` to npm.
+- Publish `cursor-canvas-export` to npm.
 - Add an "Add to Cursor" install link to the README.
 - CI: tests on Windows and Linux; publish on `v*` tags.
 
