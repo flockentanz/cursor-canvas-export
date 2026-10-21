@@ -1,5 +1,7 @@
 # cursor-canvas-export
 
+[![npm](https://img.shields.io/npm/v/cursor-canvas-export.svg)](https://www.npmjs.com/package/cursor-canvas-export)
+
 Export a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
 
 HTML is the rendered page. The PDF is that page printed by headless Chromium, so colors, type, tables, and charts stay together. Nothing opens on screen. The page is one continuous sheet the width of the canvas panel.
