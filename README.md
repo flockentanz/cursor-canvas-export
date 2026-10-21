@@ -3,11 +3,9 @@
 <a href="https://www.npmjs.com/package/cursor-canvas-export"><img alt="npm" src="https://img.shields.io/npm/v/cursor-canvas-export.svg" height="28"></a>
 <a href="https://cursor.com/install-mcp?name=canvas-export&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImN1cnNvci1jYW52YXMtZXhwb3J0IiwibWNwIl19"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cursor.com/deeplink/mcp-install-dark.svg"><img alt="Add to Cursor" height="28" src="https://cursor.com/deeplink/mcp-install-light.svg"></picture></a>
 
-Export a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
+Command-line tool and MCP server. It exports a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
 
 HTML is the rendered page. The PDF is that page printed by headless Chromium, so colors, type, tables, and charts stay together. Nothing opens on screen. The page is one continuous sheet the width of the canvas panel.
-
-The same tool is published for agents as an MCP server.
 
 ## Install
 
