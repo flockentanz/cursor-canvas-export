@@ -1,7 +1,7 @@
 # cursor-canvas-export
 
-<a href="https://www.npmjs.com/package/cursor-canvas-export"><img alt="npm" src="https://img.shields.io/npm/v/cursor-canvas-export.svg" height="28"></a>
-<a href="https://cursor.com/install-mcp?name=canvas-export&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImN1cnNvci1jYW52YXMtZXhwb3J0IiwibWNwIl19"><picture><source media="(prefers-color-scheme: dark)" srcset="https://cursor.com/deeplink/mcp-install-dark.svg"><img alt="Add to Cursor" height="28" src="https://cursor.com/deeplink/mcp-install-light.svg"></picture></a>
+[![npm](https://img.shields.io/npm/v/cursor-canvas-export.svg)](https://www.npmjs.com/package/cursor-canvas-export)
+[![Add to Cursor](https://img.shields.io/badge/Add_to_Cursor-111111?logo=cursor&logoColor=white)](https://cursor.com/install-mcp?name=canvas-export&config=eyJjb21tYW5kIjoibnB4IiwiYXJncyI6WyIteSIsImN1cnNvci1jYW52YXMtZXhwb3J0IiwibWNwIl19)
 
 Command-line tool and MCP server. It exports a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
 
