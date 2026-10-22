@@ -15,7 +15,7 @@ export function createServer(): McpServer {
   holdBrowserProcess();
   warmBrowser();
   const server = new McpServer(
-    { name: "cursor-canvas-export", version: "0.1.0" },
+    { name: "cursor-canvas-export", version: "0.1.1" },
     {
       instructions:
         "If export_canvas or preview_canvas tells you to wait because Chromium is downloading, that is not an error. Wait about 30 seconds and call the same tool again with the same arguments. The file or preview is ready only when that later call returns it.",

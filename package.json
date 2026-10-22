@@ -1,6 +1,6 @@
 {
   "name": "cursor-canvas-export",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Export a Cursor canvas to HTML and a one-page PDF. Headless, for agents and the command line.",
   "license": "MIT",
   "type": "module",
