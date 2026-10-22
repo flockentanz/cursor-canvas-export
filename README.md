@@ -16,7 +16,7 @@ npm install
 npx playwright install chromium
 ```
 
-The first export downloads Chromium if it is not cached yet. Later runs reuse that copy on Windows, macOS, and Linux.
+The first export downloads Chromium if it is not cached yet. On the command line that download happens inside the command. The MCP tools return immediately and ask for a short wait while the download continues in the background. Later runs reuse that copy on Windows, macOS, and Linux.
 
 ## Command line
 
@@ -76,6 +76,8 @@ The server exposes three tools:
 | `preview_canvas` | Return a PNG of the page. Tall pages are clipped to the top. |
 
 Ask the agent to export a canvas. It calls the tool and returns the file paths.
+
+The first time Chromium is not cached, `export_canvas` and `preview_canvas` return at once and tell the agent to wait about 30 seconds, then call the same tool again with the same arguments. That reply is not a failed export. The file appears when a later call returns the output paths.
 
 ## How it works
 

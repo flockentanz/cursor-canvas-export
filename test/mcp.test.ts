@@ -7,7 +7,12 @@ import test from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
-import { closeBrowser } from "../src/browser";
+import {
+  browserGateDuringDownloadForTests,
+  closeBrowser,
+  forceBrowserGateForTests,
+  whenBrowserReadyForTests,
+} from "../src/browser";
 import { createServer } from "../src/mcp";
 
 const require = createRequire(import.meta.url);
@@ -28,6 +33,7 @@ test("mcp lists and exports a canvas by name", { timeout: 180_000 }, async () =>
     const listed = await client.callTool({ name: "list_canvases", arguments: {} });
     const listedText = textOf(listed);
     assert.match(listedText, /gallery/);
+    await whenBrowserReadyForTests();
 
     const exported = await client.callTool({
       name: "export_canvas",
@@ -83,6 +89,101 @@ test("mcp returns candidates for an ambiguous name and a file:line build error",
     assert.equal(isError(missing), true);
     assert.match(textOf(missing), /No canvas found/);
   } finally {
+    await client.close();
+    await closeBrowser();
+    if (previous === undefined) delete process.env.CANVAS_PROJECTS_DIR;
+    else process.env.CANVAS_PROJECTS_DIR = previous;
+  }
+});
+
+test("browser gate answers as soon as a download starts", async () => {
+  const gate = await browserGateDuringDownloadForTests();
+  assert.deepEqual(gate, { state: "downloading" });
+});
+
+test("mcp tells the agent to wait while chromium downloads", async () => {
+  const restore = forceBrowserGateForTests({ state: "downloading" });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "canvas-mcp-wait-"));
+  const dir = path.join(root, "demo-workspace", "canvases");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.copyFileSync(path.resolve("fixtures/gallery.canvas.tsx"), path.join(dir, "gallery.canvas.tsx"));
+  const previous = process.env.CANVAS_PROJECTS_DIR;
+  process.env.CANVAS_PROJECTS_DIR = root;
+
+  const client = new Client({ name: "test", version: "0" });
+  const server = createServer();
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  try {
+    const listed = await client.callTool({ name: "list_canvases", arguments: {} });
+    assert.match(textOf(listed), /gallery/);
+
+    const exported = await client.callTool({
+      name: "export_canvas",
+      arguments: { canvas: "gallery", format: "html", theme: "dark", width: 1100 },
+    });
+    const exportedText = textOf(exported);
+    assert.equal(isError(exported), false);
+    assert.match(exportedText, /Wait about 30 seconds, then call export_canvas again with the same arguments/);
+    assert.match(exportedText, /This is not an error/);
+    assert.match(exportedText, /Nothing was rendered or written yet/);
+    assert.doesNotMatch(exportedText, /html: /);
+    assert.doesNotMatch(exportedText, /npx playwright install/);
+    assert.equal(fs.existsSync(path.join(dir, "gallery.html")), false);
+
+    const again = await client.callTool({
+      name: "export_canvas",
+      arguments: { canvas: "gallery", format: "html", theme: "dark", width: 1100 },
+    });
+    assert.equal(isError(again), false);
+    assert.match(textOf(again), /still downloading/);
+    assert.equal(fs.existsSync(path.join(dir, "gallery.html")), false);
+
+    const preview = await client.callTool({
+      name: "preview_canvas",
+      arguments: { canvas: "gallery", theme: "dark", width: 1100 },
+    });
+    const previewText = textOf(preview);
+    assert.equal(isError(preview), false);
+    assert.match(previewText, /Wait about 30 seconds, then call preview_canvas again with the same arguments/);
+    assert.match(previewText, /This is not an error/);
+    assert.equal(contentOf(preview).some((item) => item.type === "image"), false);
+  } finally {
+    restore();
+    await client.close();
+    await closeBrowser();
+    if (previous === undefined) delete process.env.CANVAS_PROJECTS_DIR;
+    else process.env.CANVAS_PROJECTS_DIR = previous;
+  }
+});
+
+test("mcp tells the agent to wait again when a chromium download fails", async () => {
+  const restore = forceBrowserGateForTests({
+    state: "failed",
+    message: "playwright install chromium exited with code 1",
+  });
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "canvas-mcp-fail-"));
+  const dir = path.join(root, "demo-workspace", "canvases");
+  fs.mkdirSync(dir, { recursive: true });
+  fs.copyFileSync(path.resolve("fixtures/gallery.canvas.tsx"), path.join(dir, "gallery.canvas.tsx"));
+  const previous = process.env.CANVAS_PROJECTS_DIR;
+  process.env.CANVAS_PROJECTS_DIR = root;
+
+  const client = new Client({ name: "test", version: "0" });
+  const server = createServer();
+  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  await Promise.all([client.connect(clientTransport), server.connect(serverTransport)]);
+  try {
+    const exported = await client.callTool({ name: "export_canvas", arguments: { canvas: "gallery", format: "html" } });
+    const exportedText = textOf(exported);
+    assert.equal(isError(exported), false);
+    assert.match(exportedText, /Chromium download failed: playwright install chromium exited with code 1/);
+    assert.match(exportedText, /Wait about 30 seconds, then call export_canvas again with the same arguments/);
+    assert.match(exportedText, /npx playwright install chromium/);
+    assert.match(exportedText, /not a problem with the canvas/);
+    assert.equal(fs.existsSync(path.join(dir, "gallery.html")), false);
+  } finally {
+    restore();
     await client.close();
     await closeBrowser();
     if (previous === undefined) delete process.env.CANVAS_PROJECTS_DIR;

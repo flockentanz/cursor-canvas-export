@@ -3,7 +3,7 @@ import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { acquireBrowser, releaseBrowser } from "./browser";
+import { acquireBrowser, browserGate, BrowserNotReady, releaseBrowser } from "./browser";
 import { buildTheme, fontStack, type ThemeKind } from "./sdk/tokens";
 
 const require = createRequire(import.meta.url);
@@ -19,6 +19,11 @@ export type ConvertOptions = {
   screenshot?: string;
   /** Return a PNG buffer and do not write HTML or PDF. */
   preview?: boolean;
+  /**
+   * MCP only. Return as soon as a Chromium download starts instead of holding the tool call.
+   * The command line omits this and waits for the install.
+   */
+  deferBrowser?: boolean;
 };
 
 export type ConvertResult = {
@@ -134,6 +139,11 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
 <script>${script}</script>
 </body>
 </html>`;
+
+  if (options.deferBrowser) {
+    const gate = await browserGate();
+    if (gate.state !== "ready") throw new BrowserNotReady(gate);
+  }
 
   const browser = await acquireBrowser();
   let page: Awaited<ReturnType<typeof browser.newPage>> | undefined;
