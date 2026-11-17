@@ -5,7 +5,7 @@
 
 Command-line tool and MCP server. It exports a Cursor canvas (`.canvas.tsx`) to a self-contained HTML file and a one-page PDF.
 
-HTML is the rendered page. The PDF is that page printed by headless Chromium, so colors, type, tables, and charts stay together. Nothing opens on screen. The page is one continuous sheet the width of the canvas panel.
+HTML is the canvas page with its script kept, so tabs, buttons, and other controls still work in a browser. The PDF is that page printed by headless Chromium at the initial view, so colors, type, tables, and charts stay together. Nothing opens on screen. The page is one continuous sheet the width of the canvas panel.
 
 ## Install
 
@@ -81,7 +81,7 @@ The first time Chromium is not cached, `export_canvas` and `preview_canvas` retu
 
 ## How it works
 
-A canvas only imports `cursor/canvas`. This package bundles the file with esbuild against a local implementation of that SDK, mounts it in headless Chromium, and saves the DOM. Chart colors and the type scale come from the public canvas tokens.
+A canvas only imports `cursor/canvas`. This package bundles the file with esbuild against a local implementation of that SDK. The HTML file is that bundle, so clicks keep working when it is opened. Headless Chromium still mounts the page to print the PDF and to catch render errors. Chart colors and the type scale come from the public canvas tokens.
 
 The IDE font is private, so text uses Segoe UI on Windows and `system-ui` elsewhere. Glyphs can differ slightly from the panel in Cursor.
 

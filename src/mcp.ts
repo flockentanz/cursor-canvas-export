@@ -56,7 +56,7 @@ export function createServer(): McpServer {
     "export_canvas",
     {
       title: "Export canvas",
-      description: `Render a Cursor canvas to HTML and/or a one-page PDF. Pass a full path or a canvas name. Files are written next to the canvas unless out is set. Returns output paths, page size, and warnings. The browser runs headless. ${browserWait}`,
+      description: `Render a Cursor canvas to HTML and/or a one-page PDF. The HTML file keeps the canvas script, so tabs and buttons still work in a browser. The PDF is the initial view. Pass a full path or a canvas name. Files are written next to the canvas unless out is set. Returns output paths, page size, and warnings. The browser runs headless. ${browserWait}`,
       inputSchema: {
         canvas: z.string().describe("Absolute path to a .canvas.tsx file, or its name without the extension."),
         format: z.enum(["html", "pdf", "both"]).optional().describe("Defaults to both."),

@@ -68,6 +68,31 @@ test("gallery canvas becomes one HTML page and one PDF page", { timeout: 180_000
   }
 });
 
+test("html keeps tab clicks", { timeout: 180_000 }, async () => {
+  const result = await convert({
+    input: path.resolve("fixtures/tabs.canvas.tsx"),
+    out: path.resolve("out/tabs"),
+    format: "html",
+  });
+  assert.ok(result.html);
+  const html = fs.readFileSync(result.html, "utf8");
+  assert.match(html, /<script>/);
+
+  const browser = await chromium.launch({ headless: true });
+  try {
+    const page = await browser.newPage({ viewport: { width: 800, height: 900 } });
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    await page.goto(pathToFileURL(result.html).href);
+    await page.getByText("Tasks panel").waitFor();
+    await page.getByRole("button", { name: "Coverage" }).click();
+    await page.getByText("Coverage panel").waitFor();
+    assert.deepEqual(errors, []);
+  } finally {
+    await browser.close();
+  }
+});
+
 test("sidecar state replaces the canvas default", { timeout: 180_000 }, async () => {
   const result = await convert({
     input: path.resolve("fixtures/state.canvas.tsx"),

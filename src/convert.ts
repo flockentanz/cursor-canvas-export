@@ -65,6 +65,10 @@ function centerHtmlForBrowser(html: string): string {
   return `${html.slice(0, head)}<style>#root{margin-left:auto;margin-right:auto}</style>${html.slice(head)}`;
 }
 
+function escapeHtml(value: string): string {
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+}
+
 function outputStem(out: string | undefined, input: string): string {
   if (!out) return input.replace(/\.canvas\.tsx$/, "");
   const resolved = path.resolve(out);
@@ -186,11 +190,7 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
     }
     if (errors.length > 0) throw new Error(errors.join("\n"));
 
-    await page.evaluate(() => {
-      const heading = document.querySelector("h1");
-      if (heading?.textContent) document.title = heading.textContent.trim();
-      document.querySelectorAll("script").forEach((node) => node.remove());
-    });
+    const title = await page.evaluate(() => document.querySelector("h1")?.textContent?.trim() ?? "");
 
     const size = await page.evaluate(() => ({
       width: document.documentElement.scrollWidth,
@@ -209,7 +209,11 @@ export async function convert(options: ConvertOptions): Promise<ConvertResult> {
 
     if (!options.preview && (format === "html" || format === "both")) {
       const file = `${stem}.html`;
-      fs.writeFileSync(file, centerHtmlForBrowser(await page.content()), "utf8");
+      const titled = title
+        ? shell.replace("<title>Canvas</title>", () => `<title>${escapeHtml(title)}</title>`)
+        : shell;
+      // The bundle stays in the file. A DOM snapshot has no React handlers, so tabs and buttons do not click.
+      fs.writeFileSync(file, centerHtmlForBrowser(titled), "utf8");
       result.html = file;
     }
     if (options.preview) {
