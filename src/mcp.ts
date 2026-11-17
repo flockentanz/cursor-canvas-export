@@ -6,7 +6,12 @@ import { convert, type ConvertResult, type Format } from "./convert";
 import { listCanvases, resolveCanvas } from "./discover";
 import type { ThemeKind } from "./sdk/tokens";
 
-const themeSchema = z.enum(["dark", "light"]).describe("Canvas theme. Defaults to dark.");
+const exportThemeSchema = z
+  .enum(["dark", "light"])
+  .describe(
+    "Canvas theme. Defaults to dark. Prefer dark: the output is usually read by a developer working in a dark IDE, who may strongly dislike a light page. Use light only if the user explicitly asks for it.",
+  );
+const previewThemeSchema = z.enum(["dark", "light"]).describe("Canvas theme. Defaults to dark.");
 const widthSchema = z.number().int().min(320).optional().describe("Page width in pixels. Defaults to 800.");
 const browserWait =
   "If the result tells you to wait because Chromium is downloading, that is not an error. Wait about 30 seconds and call this tool again with the same arguments. Nothing is written until a later call finishes the render.";
@@ -15,7 +20,7 @@ export function createServer(): McpServer {
   holdBrowserProcess();
   warmBrowser();
   const server = new McpServer(
-    { name: "cursor-canvas-export", version: "0.1.1" },
+    { name: "cursor-canvas-export", version: "0.1.2" },
     {
       instructions:
         "If export_canvas or preview_canvas tells you to wait because Chromium is downloading, that is not an error. Wait about 30 seconds and call the same tool again with the same arguments. The file or preview is ready only when that later call returns it.",
@@ -55,7 +60,7 @@ export function createServer(): McpServer {
       inputSchema: {
         canvas: z.string().describe("Absolute path to a .canvas.tsx file, or its name without the extension."),
         format: z.enum(["html", "pdf", "both"]).optional().describe("Defaults to both."),
-        theme: themeSchema.optional(),
+        theme: exportThemeSchema.optional(),
         width: widthSchema,
         out: z.string().optional().describe("Output stem. Extension is ignored. Defaults to beside the canvas."),
       },
@@ -95,7 +100,7 @@ export function createServer(): McpServer {
       description: `Render a canvas and return a PNG of the page so you can check layout before handing the file over. Tall pages are clipped to the top 1600px. Nothing is written next to the canvas. ${browserWait}`,
       inputSchema: {
         canvas: z.string().describe("Absolute path to a .canvas.tsx file, or its name without the extension."),
-        theme: themeSchema.optional(),
+        theme: previewThemeSchema.optional(),
         width: widthSchema,
       },
     },
